@@ -1,0 +1,120 @@
+# Variable Notes (from "Asteroid Optimized Filter Design" paper)
+
+## Telescope & Camera
+
+"t = exposure time" (pg 4, eq. 4) = t_exp_s
+    - Unit: seconds (s)
+    - Used in: detected_signal(), detected_background()
+
+"Telescope diameter d (m)" (pg 4, eq. 4) = d_m
+    - Unit: meters (m)
+    - Used in: collecting area (π d^2 / 4)
+
+"CCD gain G (e−/photon)" (pg 4, eq. 4) = gain_e_per_ph
+    - Unit: electrons per photon (e-/photon)
+    - Converts photons into electrons
+
+"R = read noise" (pg 5, eq. 5) = read_noise_e
+    - Unit: electrons (e- RMS)
+    - Appears in: A^2 R^2 term of background
+
+"s_pix = pixel size" (pg 5, eq. 6) = s_pix_m
+    - Unit: meters (m)
+    - Used in: Airy disk formula A^2
+
+## Spectra & Reflectance
+
+"Ṡsun(λ) = Solar irradiance above the atmosphere (phot/ sec / m^2 / nm)" (pg 4, eq. 2) = spectrum_sun(lam_nm)
+    - Unit: photons / s / m^2 / nm
+    - The Sun’s spectrum above Earth’s atmosphere
+
+"Rast(λ) = Asteroid reflectance normalized to 1.0 at 550 nm" (pg 4, eq. 2) = reflectance_asteroid(lam_nm)
+    - Unit: dimensionless (0–1)
+    - Multiplicative factor on solar spectrum
+
+"Ṡast(V, λ) = CV Ṡsun(λ) Rast(λ)" (pg 4, eq. 2) = spectrum_asteroid_TOA(V_mag, lam_nm, Ssun, Rast)
+    - Unit: photons / s / m^2 / nm
+    - Asteroid spectrum at top of atmosphere
+
+"CV = normalization constant" (pg 4, eq. 3) = C_V
+    - Unit: dimensionless scaling factor
+    - Ensures asteroid spectrum matches its V magnitude flux
+
+## Filter Transmissions
+
+"Tatm(λ) = atmospheric transmission" (pg 4, eq. 4) = transmission_atm(lam_nm)
+
+"Topt(λ) = optical transmission" (pg 4, eq. 4) = transmission_optics(lam_nm)
+
+"Tfilt(λ) = filter transmission" (pg 4, eq. 4) = transmission_filter_placeholder(lam_nm, lam1, lam2)
+
+"ϵCCD(λ) = CCD efficiency" (pg 4, eq. 4) = ccd_qe(lam_nm)
+    - Unit: electrons per photon (0–1 range)
+
+## Background Terms
+
+"Ṡsky(λ) = sky background" (pg 5, eq. 5) = sky_photon_spectrum(lam_nm)
+    - Unit: photons / s / m^2 / nm / arcsec^2
+    - Source: moonlight, airglow, light pollution, etc.
+
+"Ċ(λ) = camera induced background" (pg 5, eq. 5) = camera_background(lam_nm)
+    - Unit: photons / s / m^2 / nm
+    - From reflections inside the system
+
+"Ḋ(λ) = dark current" (pg 5, eq. 5) = dark_current(lam_nm)
+    - Unit: photons / s / m^2 / nm (equivalent)
+    - From thermal electrons in the CCD
+
+## V-band Normalization
+
+"C = 995.5 × 10^5 photons m^−2 s^−1 nm^−1" (pg 4, eq. 1) = C_V_FLUX
+    - Unit: photons / s / m^2 / nm
+    - Calibration constant
+
+"ΔλV = effective width of the V-band filter" (pg 4, eq. 1) = bands.V_width
+    - Unit: nanometers (nm)
+
+"λV,min, λV,max = V-band min/max" (pg 4, eq. 3) = bands.V_min, bands.V_max
+    - Unit: nanometers (nm)
+
+## Signal, Background, and Error
+
+"S(λ1, λ2; t, d, V)" (pg 4, eq. 4) = detected_signal(...)
+    - Unit: electrons (e-)
+
+"B(λ1, λ2; t, d, V)" (pg 5, eq. 5) = detected_background(...)
+    - Unit: electrons (e-)
+
+"ΔS = √(S + B)" (pg 5, eq. 7) = sigma_S(S, B)
+    - Unit: electrons (e-)
+    - Uncertainty on signal
+
+## Color & χ²
+
+"c = m2 − m1 = 2.5 log(S1/S2)" (pg 5, eq. 8) = color_mag(S1, dS1, S2, dS2)
+    - Unit: magnitudes
+    - Plus propagated error Δc
+
+"χ²k,k* = (ck − ck*)² / ((Δck)² + (Δck*)²)" (pg 6, eq. 9) = chi2_two_classes(c_k, dc_k, c_kstar, dc_kstar)
+    - goodness-of-fit
+
+Created Variables:
+lam1
+lam2
+instr
+lam_nm
+inside_integral
+
+Where have I used AI so far:
+- Asked it to look at my code, what can I improve on: said to ass __init__
+- "My variable names are confusing, can you rename them so they're more organized"
+- in detected signal, I passed every instrument separately which it discouraged. it swapped it into an instr, single dictionary to hold the values
+
+To Do:
+DONE: Test skeleton structure with zero/1 values
+NEXT: Test skeleton with actual test numbers
+Make a list of all eqn's you've made so far/completed - all over the place rn
+Make a conversion method to get everything in the same units- review this cant rememer
+
+
+List all sources you've used so far
