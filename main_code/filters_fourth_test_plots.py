@@ -87,7 +87,7 @@ instr = make_instrument(
     read_noise_e=5.0 
 )
 
-band1 = (460, 470)
+band1 = (450, 650) #increased to make 
 band2 = (730, 740)
 t_exp = 60.0 #change t_exp to t_exp_s
 
@@ -158,36 +158,26 @@ plt.legend()
 plt.grid(True)
 plt.show()
 
-# #more/extra
+#more/extra
 
-# #solar spectrum
-# Ssun = spectrum_sun(wavelength)
-# plt.figure(figsize=(8,5))
-# plt.plot(wavelength, Ssun)
-# plt.xlabel("Wavelength (nm)")
-# plt.ylabel("Solar spectrum - arbitrary units")
-# plt.title("Solar spectrum S_sun(λ)")
-# plt.grid(True)
-# plt.show()
+#solar spectrum
+Ssun = spectrum_sun(wavelength)
+plt.figure(figsize=(8,5))
+plt.plot(wavelength, Ssun)
+plt.xlabel("Wavelength (nm)")
+plt.ylabel("Solar spectrum - arbitrary units")
+plt.title("Solar spectrum S_sun(λ)")
+plt.grid(True)
+plt.show()
 
-# #asteroid reflectance
-# Rast = reflectance_asteroid(wavelength)
-# plt.figure(figsize=(8,5))
-# plt.plot(wavelength, Rast)
-# plt.xlabel("Wavelength (nm)")
-# plt.ylabel("Reflectance (unitless)")
-# plt.title("Asteroid reflectance Rast(λ)")
-# plt.grid(True)
-# plt.show()
-
-# #asteroid reflectance
-# S_ast = asteroid_flux_raw(wavelength) #change
-# plt.figure(figsize=(8,5))
-# plt.plot(wavelength, S_ast)
-# plt.xlabel("Wavelength (nm)")
-# plt.ylabel("Asteroid flux")
-# plt.title("Asteroid photon spectrum Sast(λ) ≈ Ssun × Rast")
-# plt.grid(True)
-# plt.show()
+#asteroid reflectance
+Rast = reflectance_asteroid(wavelength)
+plt.figure(figsize=(8,5))
+plt.plot(wavelength, Rast)
+plt.xlabel("Wavelength (nm)")
+plt.ylabel("Reflectance (unitless)")
+plt.title("Asteroid reflectance Rast(λ)")
+plt.grid(True)
+plt.show()
 
 
