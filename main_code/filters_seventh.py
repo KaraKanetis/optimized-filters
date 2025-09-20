@@ -283,9 +283,14 @@ plt.title(f"Per-λ background inside [{band1[0]}, {band1[1]}] nm")
 plt.legend(); plt.grid(True); plt.show()
 
 
-# Example SNR function (replace with your own)
-def SNR(L1, L2):
-    return np.log(L2 - L1 + 1) * np.sin(L1/10)  # just for demo
+
+
+# 
+def SNR(lam1, lam2):
+    S1 = detected_signal_band(wavelength, lam1, lam2, instr, t_exp)
+    B1 = detected_background_band(wavelength, lam1, lam2, instr, t_exp, n_pix_aperture)
+    SNR = S1 / math.sqrt(S1+B1)
+    return SNR
 
 # Define ranges
 L1_vals = np.linspace(0, 100, 200)
@@ -309,3 +314,6 @@ plt.xlabel("L1")
 plt.ylabel("L2")
 plt.title("SNR vs L1 and L2 (L2 > L1)")
 plt.show()
+
+# random to show commit
+
