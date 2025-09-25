@@ -316,4 +316,4 @@ plt.title("SNR vs L1 and L2 (L2 > L1)")
 plt.show()
 
 # random to show commit
-
+# random comment with Spyder to see if everything works
