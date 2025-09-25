@@ -1,319 +1,306 @@
-# reading files, no more dummy numbers
-# removing the unit conversion from here and putting it into the file reader
-
 import numpy as np
 import matplotlib.pyplot as plt
 import data_files.load_data as ld
 import math
 
-# read curves once
-lam, curves = ld.load_all_curves(base_dir="data_files")
-interp = ld.make_curve_interpolators(lam, curves)
+# ----------------------------
+# Load curves
+# ----------------------------
+wavelength_grid_nm, curves = ld.load_all_curves(base_dir="data_files")
+interp = ld.make_curve_interpolators(wavelength_grid_nm, curves)
 f_sun    = interp["sun"]
 f_ast    = interp["asteroid"]
 f_atm    = interp["atm"]
 f_qe     = interp["qe"]
 f_mirror = interp["mirror"]
 
-COMMON_GRID_NM = np.arange(300.0, 1201.0, 1.0)
+COMMON_GRID_NM = np.arange(300.0, 1201.0, 1.0)  # nm
 
 # ----------------------------
 # Instrument & bands helpers
 # ----------------------------
 def make_instrument(d_m, gain_e_per_ph, s_pix_m, read_noise_e, dark_e_per_pix_s=0.0):
+    """
+    d_m:                 aperture diameter [m]
+    gain_e_per_ph:       electrons per photon (ONLY use if QE doesn't already include it)
+    s_pix_m:             pixel pitch [m]
+    read_noise_e:        read noise per pixel [e- RMS]
+    dark_e_per_pix_s:    dark current [e- / pixel / s]
+    """
     return {
-        "d": d_m,
-        "gain": gain_e_per_ph,
-        "s_pix": s_pix_m,
-        "read_noise": read_noise_e,  
-        "dark_e_per_pix_s": dark_e_per_pix_s,
+        "d_m": float(d_m),
+        "gain_e_per_ph": float(gain_e_per_ph),
+        "s_pix_m": float(s_pix_m),
+        "read_noise_e": float(read_noise_e),
+        "dark_e_per_pix_s": float(dark_e_per_pix_s),
     }
 
-def make_bands(V_min_nm, V_max_nm, V_width_nm):
+def make_bands(band_min_nm, band_max_nm, band_width_nm=None):
     return {
-        "V_min": V_min_nm,
-        "V_max": V_max_nm,
-        "V_width": V_width_nm,
+        "band_min_nm": float(band_min_nm),
+        "band_max_nm": float(band_max_nm),
+        "band_width_nm": None if band_width_nm is None else float(band_width_nm),
     }
 
 # --------------------------------
-# Physics functions
+# Physics functions (all λ in nm)
 # --------------------------------
 def spectrum_sun(wavelength_nm):
-    """Solar photon spectrum on nm grid (from file)."""
+    """Solar photon spectrum vs wavelength_nm [photons / s / m² / nm]."""
     return f_sun(wavelength_nm)
 
 def reflectance_asteroid(wavelength_nm):
-    """Asteroid reflectance (from file)."""
+    """Asteroid reflectance (unitless)."""
     return f_ast(wavelength_nm)
 
 def transmission_atm(wavelength_nm):
-    """Atmospheric transmission (from file)."""
+    """Atmospheric transmission (0..1)."""
     return f_atm(wavelength_nm)
 
 def transmission_optics(wavelength_nm):
-    """Optics throughput (here: mirror reflectivity from file)."""
+    """Optics throughput (0..1), here: mirror reflectivity."""
     return f_mirror(wavelength_nm)
 
 def ccd_qe(wavelength_nm):
-    """CCD QE (from file)."""
+    """CCD quantum efficiency [e- / photon] (0..1)."""
     return f_qe(wavelength_nm)
 
-def transmission_filter_placeholder(wavelength_nm, wavelength1_nm, wavelength2_nm):
-    """Tophat filter: 1 inside [λ1, λ2], else 0."""
-    wavelength = np.asarray(wavelength_nm, float)
-    return ((wavelength >= wavelength1_nm) & (wavelength <= wavelength2_nm)).astype(float)
+def transmission_filter_placeholder(wavelength_nm, band_min_nm, band_max_nm):
+    """Top-hat filter transmission: 1 inside [band_min_nm, band_max_nm], else 0."""
+    wavelength_nm = np.asarray(wavelength_nm, float)
+    return ((wavelength_nm >= band_min_nm) & (wavelength_nm <= band_max_nm)).astype(float)
 
 def sky_photon_spectrum(wavelength_nm):
-    """Background photon spectrum (placeholder; keep simple for now)."""
-    # background placeholder, need spectrum?
+    """Background photon spectrum [photons / s / m² / nm] (placeholder flat)."""
     return 1e2 * np.ones_like(wavelength_nm, dtype=float)
 
 def asteroid_flux_raw(wavelength_nm):
-    """Asteroid photon spectrum ≈ Sun × Reflectance (now from real curves)."""
+    """Asteroid photon spectrum density ≈ Sun × Reflectance [photons / s / m² / nm]."""
     return spectrum_sun(wavelength_nm) * reflectance_asteroid(wavelength_nm)
 
 # --------------------------------------------
 # Per-wavelength integrands and band integrals
 # --------------------------------------------
-def signal_integrand(wavelength_nm, wavelength1_nm, wavelength2_nm, instr, t_exp_s):
+def _collecting_area_m2(instr):
+    return math.pi * (instr["d_m"] ** 2) / 4.0
+
+def signal_integrand(wavelength_nm, band_min_nm, band_max_nm, instr, t_exp_s):
     """
-    Per-wavelength contribution to detected signal (Eq. 4 BEFORE integrating).
-    Returns array same shape as wavelength_nm.
+    Per-wavelength contribution to detected signal [e- per nm].
     """
-    wavelength = np.asarray(wavelength_nm, float)
-    S_ast = asteroid_flux_raw(wavelength)
-    Tatm  = transmission_atm(wavelength)
-    Topt  = transmission_optics(wavelength)
-    Tf    = transmission_filter_placeholder(wavelength, wavelength1_nm, wavelength2_nm)
-    QE    = ccd_qe(wavelength)
+    wavelength_nm = np.asarray(wavelength_nm, float)
+    S_ast_ph_per_s_m2_nm = asteroid_flux_raw(wavelength_nm)      # photons / s / m^2 / nm
+    T_atm   = transmission_atm(wavelength_nm)                    # unitless
+    T_opt   = transmission_optics(wavelength_nm)                 # unitless
+    T_filt  = transmission_filter_placeholder(wavelength_nm, band_min_nm, band_max_nm)  # unitless
+    QE_eph  = ccd_qe(wavelength_nm)                              # e- / photon
+    gain_e_per_ph = instr["gain_e_per_ph"]                       # note: usually 1.0 if QE already in e-/photon
 
-    area_m2 = np.pi * (instr["d"] ** 2) / 4.0
-    return t_exp_s * instr["gain"] * area_m2 * (S_ast * Tatm * Topt * Tf * QE)
+    area_m2 = _collecting_area_m2(instr)
+    # electrons per nm = photons/s/m^2/nm * s * m^2 * (unitless) * (e-/ph) * (optional extra gain_e_per_ph)
+    return t_exp_s * area_m2 * (S_ast_ph_per_s_m2_nm * T_atm * T_opt * T_filt * QE_eph * gain_e_per_ph)
 
-def detected_signal_band(wavelength_nm, wavelength1_nm, wavelength2_nm, instr, t_exp_s):
-    """Total detected signal (electrons) in band [λ1, λ2] via trapezoidal integral over λ."""
-    integrand = signal_integrand(wavelength_nm, wavelength1_nm, wavelength2_nm, instr, t_exp_s)
-    return float(np.trapz(integrand, wavelength_nm))
+def detected_signal_band(wavelength_nm, band_min_nm, band_max_nm, instr, t_exp_s):
+    """Total detected signal in [band_min_nm, band_max_nm] [electrons]."""
+    integrand_e_per_nm = signal_integrand(wavelength_nm, band_min_nm, band_max_nm, instr, t_exp_s)
+    return float(np.trapz(integrand_e_per_nm, wavelength_nm))
 
-def background_integrand(wavelength_nm, wavelength1_nm, wavelength2_nm, instr, t_exp_s):
-    """Per-wavelength background contribution (placeholder sky × optics × QE × filter)."""
-    wavelength = np.asarray(wavelength_nm, float)
-    Ssky = sky_photon_spectrum(wavelength)
-    Tatm = transmission_atm(wavelength)
-    Topt = transmission_optics(wavelength)
-    Tf   = transmission_filter_placeholder(wavelength, wavelength1_nm, wavelength2_nm)
-    QE   = ccd_qe(wavelength)
-    area_m2 = np.pi * (instr["d"] ** 2) / 4.0
-    return t_exp_s * instr["gain"] * area_m2 * (Ssky * Tatm * Topt * Tf * QE)
+def background_integrand(wavelength_nm, band_min_nm, band_max_nm, instr, t_exp_s):
+    """
+    Per-wavelength sky background contribution [e- per nm per pixel] (placeholder).
+    NOTE: Real sky should include pixel solid angle; this is a simplified placeholder.
+    """
+    wavelength_nm = np.asarray(wavelength_nm, float)
+    S_sky_ph_per_s_m2_nm = sky_photon_spectrum(wavelength_nm)    # photons / s / m^2 / nm
+    T_atm  = transmission_atm(wavelength_nm)
+    T_opt  = transmission_optics(wavelength_nm)
+    T_filt = transmission_filter_placeholder(wavelength_nm, band_min_nm, band_max_nm)
+    QE_eph = ccd_qe(wavelength_nm)
+    gain_e_per_ph = instr["gain_e_per_ph"]
+    area_m2 = _collecting_area_m2(instr)
 
-def detected_background_band(wavelength_nm, wavelength1_nm, wavelength2_nm, instr, t_exp_s, n_pix_aperture):
-    """Total background (electrons) in band [λ1, λ2] (sky + dark current)."""
-    b_int = background_integrand(wavelength_nm, wavelength1_nm, wavelength2_nm, instr, t_exp_s)
-    B_photon = float(np.trapz(b_int, wavelength_nm))
-    B_dark   = instr["dark_e_per_pix_s"] * float(n_pix_aperture) * float(t_exp_s)
-    return B_photon + B_dark
+    # electrons per nm per pixel (pixel factor applied later when summing over aperture)
+    return t_exp_s * area_m2 * (S_sky_ph_per_s_m2_nm * T_atm * T_opt * T_filt * QE_eph * gain_e_per_ph)
+
+def detected_background_band(wavelength_nm, band_min_nm, band_max_nm, instr, t_exp_s, n_pix_aperture):
+    """
+    Total background [electrons] in band: (sky per pixel + dark per pixel) summed over aperture pixels.
+    """
+    b_int_e_per_nm_perpix = background_integrand(wavelength_nm, band_min_nm, band_max_nm, instr, t_exp_s)
+    B_sky_perpix_e = float(np.trapz(b_int_e_per_nm_perpix, wavelength_nm))           # e- per pixel
+    B_sky_total_e  = B_sky_perpix_e * float(n_pix_aperture)                          # sum over pixels
+    B_dark_total_e = instr["dark_e_per_pix_s"] * float(n_pix_aperture) * float(t_exp_s)
+    return B_sky_total_e + B_dark_total_e
 
 # --------------------------------------------
 # Uncertainty and color helpers
 # --------------------------------------------
-def delta_S(S, B, instr, n_pix_aperture):
+def delta_S(S_e, B_e, instr, n_pix_aperture):
     """
-    Shot noise (S + B) plus read noise per pixel × number of pixels (quadrature).
-    Eq. (7)
+    Total noise [e- RMS]: sqrt( S + B + N_pix * R^2 ).
     """
-    R = float(instr["read_noise"])   # <-- FIX: correct key
-    var = float(S) + float(B) + float(n_pix_aperture) * (R**2)
-    return float(np.sqrt(max(var, 0.0)))
+    R_e = float(instr["read_noise_e"])
+    var_e2 = float(S_e) + float(B_e) + float(n_pix_aperture) * (R_e ** 2)
+    return float(np.sqrt(max(var_e2, 0.0)))
 
-def color_mag(S1, dS1, S2, dS2):
-    """Color (m2 - m1) and its uncertainty (Eq. 8)."""
+def color_mag(S1_e, dS1_e, S2_e, dS2_e):
+    """Color (m2 - m1) [mag] and its uncertainty [mag]."""
     eps = 1e-30
-    c = 2.5 * np.log10(max(S1, eps) / max(S2, eps))
-    var = 0.0
-    if S1 > 0:
-        var += (dS1 / S1) ** 2
-    if S2 > 0:
-        var += (dS2 / S2) ** 2
-    dc = (2.5 / np.log(10.0)) * np.sqrt(var)
-    return c, dc
+    c_mag = 2.5 * np.log10(max(S1_e, eps) / max(S2_e, eps))
+    var_rel = 0.0
+    if S1_e > 0:
+        var_rel += (dS1_e / S1_e) ** 2
+    if S2_e > 0:
+        var_rel += (dS2_e / S2_e) ** 2
+    dc_mag = (2.5 / np.log(10.0)) * np.sqrt(var_rel)
+    return c_mag, dc_mag
 
 # --------------------------------------------
 # Proper cumulative integral from integrand
 # --------------------------------------------
-def cumulative_signal_from_integrand(wavelength_nm, integrand):
-    """Cumulative integral from min(λ) up to each λ_i."""
-    wavelength = np.asarray(wavelength_nm, float)
-    dlam = np.gradient(wavelength)            # Δλ at each point
-    return np.cumsum(integrand * dlam)
+def cumulative_signal_from_integrand(wavelength_nm, integrand_e_per_nm):
+    """Cumulative electrons integrated from min(wavelength_nm) up to each point."""
+    wavelength_nm = np.asarray(wavelength_nm, float)
+    dlam_nm = np.gradient(wavelength_nm)  # nm
+    return np.cumsum(integrand_e_per_nm * dlam_nm)
 
 # ===========================
 # TEST / PLOTS
 # ===========================
-# wavelength grid for everything (match the common grid)
-wavelength = lam  # use the same grid the loaders produced (1-nm from 300–1200)
-# To use 400–900 only:
-# wavelength = np.arange(400.0, 901.0, 1.0)
+# wavelength grid for everything (match the common grid from loaders)
+wavelength_nm = wavelength_grid_nm  # e.g., 1-nm grid from 300–1200 nm
+# Or subset:
+# wavelength_nm = np.arange(400.0, 901.0, 1.0)
 
 # instrument & exposure
 instr = make_instrument(
     d_m=1.0,
-    gain_e_per_ph=1.0,
+    gain_e_per_ph=1.0,   # keep at 1.0 if QE is already e-/photon
     s_pix_m=5e-6,
     read_noise_e=5.0,
     dark_e_per_pix_s=0.2,
 )
-t_exp = 60.0  # seconds
+t_exp_s = 60.0  # seconds
 
-# two example bands
-band1 = (450, 650)
-band2 = (730, 740)
+# two example bands [nm]
+band1_nm = (450.0, 650.0)
+band2_nm = (730.0, 740.0)
 
-# aperture size
+# aperture size [pixels]
 n_pix_aperture = 50
 
 # ---- Plot transmissions and QE ----
-Tatm = transmission_atm(wavelength)
-Topt = transmission_optics(wavelength)
-Tf   = transmission_filter_placeholder(wavelength, 460, 470)  # simple demo filter
-QE   = ccd_qe(wavelength)
+Tatm = transmission_atm(wavelength_nm)
+Topt = transmission_optics(wavelength_nm)
+Tf   = transmission_filter_placeholder(wavelength_nm, 460.0, 470.0)  # simple demo filter
+QE   = ccd_qe(wavelength_nm)
 
 plt.figure(figsize=(8,5))
-plt.plot(wavelength, Tatm, label="Atmosphere T(λ)")
-plt.plot(wavelength, Topt, label="Optics throughput")
-plt.plot(wavelength, Tf,   label="Filter 460–470 nm")
-plt.plot(wavelength, QE,   label="CCD QE")
+plt.plot(wavelength_nm, Tatm, label="Atmosphere T(λ)")
+plt.plot(wavelength_nm, Topt, label="Optics throughput")
+plt.plot(wavelength_nm, Tf,   label="Filter 460–470 nm")
+plt.plot(wavelength_nm, QE,   label="CCD QE (e⁻/photon)")
 plt.xlabel("Wavelength (nm)")
-plt.ylabel("Transmission / QE")
+plt.ylabel("Transmission / QE (unitless)")
 plt.title("Measured transmissions & CCD QE")
 plt.legend(); plt.grid(True); plt.show()
 
 # ---- Per-λ detected signal (integrand) for band1 ----
-signal_pw = signal_integrand(wavelength, band1[0], band1[1], instr, t_exp)
+signal_pw_e_per_nm = signal_integrand(wavelength_nm, band1_nm[0], band1_nm[1], instr, t_exp_s)
 
 plt.figure(figsize=(8,5))
-plt.plot(wavelength, signal_pw, label=f"per-λ signal in [{band1[0]}, {band1[1]}] nm")
+plt.plot(wavelength_nm, signal_pw_e_per_nm, label=f"per-λ signal in [{band1_nm[0]:.0f}, {band1_nm[1]:.0f}] nm")
 plt.xlabel("Wavelength (nm)")
-plt.ylabel("Electrons per nm (scaled)")
-plt.title("Per-λ detected signal (integrand of Eq. 4)")
+plt.ylabel("Electrons per nm")
+plt.title("Per-λ detected signal (integrand)")
 plt.legend(); plt.grid(True); plt.show()
 
-# ---- Cumulative signal curve from the per-λ integrand ----
-# cum_sig = cumulative_signal_from_integrand(wavelength, signal_pw)
-
-# plt.figure(figsize=(8,5))
-# plt.plot(wavelength, cum_sig, label="cumulative signal up to λ")
-# plt.xlabel("Wavelength (nm)")
-# plt.ylabel("Integrated electrons up to λ")
-# plt.title("Cumulative detected signal vs wavelength")
-# plt.legend(); plt.grid(True); plt.show()
-
-
-# #signal to noise ratio per wavelenght using bands
-# signal_pw = signal_integrand(wavelength, band1[0], band1[1], instr, t_exp)
-# background_pw = background_integrand(wavelength, band1[0], band1[1], instr, t_exp)
-
-# # EQN 7: sqrt (B+S+ (expanded version) + aperature*R^2)
-# R = instr["read_noise"]
-# noise_pw = np.sqrt(signal_pw + background_pw + n_pix_aperture * (R**2))
-
-# # eqn SNR = signal/noise dividing
-# SNR_pw = signal_pw / noise_pw
-
-# plt.figure(figsize=(8,5))
-# plt.plot(wavelength, SNR_pw, label=f"SNR per wavelength in [{band1[0]}, {band1[1]}] nm")
-# plt.xlabel("Wavelength (nm)")
-# plt.ylabel("SNR per nm")
-# plt.title("Signal to Noise Ratio vs Wavelength")
-# plt.legend(); plt.grid(True); plt.show()
-
 # ---- Total band signals (scalars) and color demo ----
-S1 = detected_signal_band(wavelength, band1[0], band1[1], instr, t_exp)
-S2 = detected_signal_band(wavelength, band2[0], band2[1], instr, t_exp)
-B1 = detected_background_band(wavelength, band1[0], band1[1], instr, t_exp, n_pix_aperture)
-B2 = detected_background_band(wavelength, band2[0], band2[1], instr, t_exp, n_pix_aperture)
-SNR = S1 / math.sqrt(S1+B1)
+S1_e = detected_signal_band(wavelength_nm, band1_nm[0], band1_nm[1], instr, t_exp_s)
+S2_e = detected_signal_band(wavelength_nm, band2_nm[0], band2_nm[1], instr, t_exp_s)
+B1_e = detected_background_band(wavelength_nm, band1_nm[0], band1_nm[1], instr, t_exp_s, n_pix_aperture)
+B2_e = detected_background_band(wavelength_nm, band2_nm[0], band2_nm[1], instr, t_exp_s, n_pix_aperture)
 
+def snr_from_signal_background(S_e, B_e, instr, n_pix):
+    sigma_e = delta_S(S_e, B_e, instr, n_pix)
+    return float(S_e / sigma_e) if sigma_e > 0 else np.nan
 
-dS1 = delta_S(S1, B1, instr, n_pix_aperture)
-dS2 = delta_S(S2, B2, instr, n_pix_aperture)
-c, dc = color_mag(S1, dS1, S2, dS2)
+SNR1 = snr_from_signal_background(S1_e, B1_e, instr, n_pix_aperture)
 
-print("Band 1:", band1, "  S1 =", S1, "  B1 =", B1, "  ΔS1 =", dS1)
-print("Band 2:", band2, "  S2 =", S2, "  B2 =", B2, "  ΔS2 =", dS2)
-print("Color (m2 - m1) [mag]:", c, "  Uncertainty [mag]:", dc)
-print("SNR", SNR)
+dS1_e = delta_S(S1_e, B1_e, instr, n_pix_aperture)
+dS2_e = delta_S(S2_e, B2_e, instr, n_pix_aperture)
+c_mag, dc_mag = color_mag(S1_e, dS1_e, S2_e, dS2_e)
+
+print("Band 1:", band1_nm, f"  S1 = {S1_e:.3e} e-   B1 = {B1_e:.3e} e-   ΔS1 = {dS1_e:.3e} e-")
+print("Band 2:", band2_nm, f"  S2 = {S2_e:.3e} e-   B2 = {B2_e:.3e} e-   ΔS2 = {dS2_e:.3e} e-")
+print(f"Color (m2 - m1) [mag]: {c_mag:.4f}   Uncertainty [mag]: {dc_mag:.4f}")
+print(f"SNR (band1): {SNR1:.2f}")
 
 # Dark current contribution
-Bdark = instr["dark_e_per_pix_s"] * n_pix_aperture * t_exp
-print("Dark current contribution (per band):", Bdark, "electrons")
+Bdark_e = instr["dark_e_per_pix_s"] * n_pix_aperture * t_exp_s
+print("Dark current contribution (per band):", f"{Bdark_e:.3e}", "electrons")
 
 # ---- Sun, Reflectance, Asteroid flux ----
-Ssun = spectrum_sun(wavelength)
+Ssun_ph = spectrum_sun(wavelength_nm)
 plt.figure(figsize=(8,5))
-plt.plot(wavelength, Ssun)
+plt.plot(wavelength_nm, Ssun_ph)
 plt.xlabel("Wavelength (nm)")
-plt.ylabel("Solar photons / s / m² / nm (scaled)")
-plt.title("Solar spectrum S_sun(λ) (from file)")
+plt.ylabel("Solar photons / s / m² / nm")
+plt.title("Solar spectrum S_sun(λ)")
 plt.grid(True); plt.show()
 
-Rast = reflectance_asteroid(wavelength)
+Rast = reflectance_asteroid(wavelength_nm)
 plt.figure(figsize=(8,5))
-plt.plot(wavelength, Rast)
+plt.plot(wavelength_nm, Rast)
 plt.xlabel("Wavelength (nm)")
 plt.ylabel("Reflectance (unitless)")
-plt.title("Asteroid reflectance R_ast(λ) (from file)")
+plt.title("Asteroid reflectance R_ast(λ)")
 plt.grid(True); plt.show()
 
-S_ast = asteroid_flux_raw(wavelength)
+S_ast_ph = asteroid_flux_raw(wavelength_nm)
 plt.figure(figsize=(8,5))
-plt.plot(wavelength, S_ast)
+plt.plot(wavelength_nm, S_ast_ph)
 plt.xlabel("Wavelength (nm)")
-plt.ylabel("Asteroid photons (scaled)")
+plt.ylabel("Photons / s / m² / nm")
 plt.title("Asteroid photon spectrum Ṡ_ast(λ) = S_sun × R_ast")
 plt.grid(True); plt.show()
 
 # -- background per wavelength (using placeholder sky)
-b_pw = background_integrand(wavelength, band1[0], band1[1], instr, t_exp)
+b_pw_e_per_nm_perpix = background_integrand(wavelength_nm, band1_nm[0], band1_nm[1], instr, t_exp_s)
 plt.figure(figsize=(8,5))
-plt.plot(wavelength, b_pw, label="per-λ background (sky)")
+plt.plot(wavelength_nm, b_pw_e_per_nm_perpix, label="per-λ background (sky, per pixel)")
 plt.xlabel("Wavelength (nm)")
-plt.ylabel("Electrons per nm (scaled)")
-plt.title(f"Per-λ background inside [{band1[0]}, {band1[1]}] nm")
+plt.ylabel("Electrons per nm per pixel")
+plt.title(f"Per-λ background inside [{band1_nm[0]:.0f}, {band1_nm[1]:.0f}] nm")
 plt.legend(); plt.grid(True); plt.show()
 
+# ----------------------------
+# SNR map vs band edges (λ2 > λ1)
+# ----------------------------
+def snr_for_band_edges(bmin_nm, bmax_nm):
+    S_e = detected_signal_band(wavelength_nm, bmin_nm, bmax_nm, instr, t_exp_s)
+    B_e = detected_background_band(wavelength_nm, bmin_nm, bmax_nm, instr, t_exp_s, n_pix_aperture)
+    return snr_from_signal_background(S_e, B_e, instr, n_pix_aperture)
 
+# choose a valid subrange inside your grid (e.g., 400–900 nm)
+L1_vals_nm = np.linspace(400.0, 880.0, 121)
+L2_vals_nm = np.linspace(410.0, 900.0, 121)
+L1_mesh_nm, L2_mesh_nm = np.meshgrid(L1_vals_nm, L2_vals_nm)
 
+SNR_vals = np.full_like(L1_mesh_nm, np.nan, dtype=float)
+valid = L2_mesh_nm > L1_mesh_nm
+# vectorized-ish fill
+it = np.nditer(valid, flags=['multi_index'])
+while not it.finished:
+    i, j = it.multi_index
+    if valid[i, j]:
+        SNR_vals[i, j] = snr_for_band_edges(L1_mesh_nm[i, j], L2_mesh_nm[i, j])
+    it.iternext()
 
-# 
-def SNR(lam1, lam2):
-    S1 = detected_signal_band(wavelength, lam1, lam2, instr, t_exp)
-    B1 = detected_background_band(wavelength, lam1, lam2, instr, t_exp, n_pix_aperture)
-    SNR = S1 / math.sqrt(S1+B1)
-    return SNR
-
-# Define ranges
-L1_vals = np.linspace(0, 100, 200)
-L2_vals = np.linspace(0, 100, 200)
-
-# Create grid
-L1, L2 = np.meshgrid(L1_vals, L2_vals)
-
-# Mask out invalid region (L2 <= L1)
-mask = L2 > L1
-
-# Compute SNR only where valid
-SNR_vals = np.full_like(L1, np.nan, dtype=float)  # fill with NaN
-SNR_vals[mask] = SNR(L1[mask], L2[mask])
-
-# Plot
 plt.figure(figsize=(7,6))
-c = plt.pcolormesh(L1, L2, SNR_vals, shading="auto", cmap="viridis")
-plt.colorbar(c, label="SNR")
-plt.xlabel("L1")
-plt.ylabel("L2")
-plt.title("SNR vs L1 and L2 (L2 > L1)")
+pc = plt.pcolormesh(L1_mesh_nm, L2_mesh_nm, SNR_vals, shading="auto", cmap="viridis")
+plt.colorbar(pc, label="SNR (electrons-based)")
+plt.xlabel("Band min (nm)")
+plt.ylabel("Band max (nm)")
+plt.title("SNR vs band edges (band_max_nm > band_min_nm)")
 plt.show()
-
-# random to show commit
-# random comment with Spyder to see if everything works

@@ -132,3 +132,137 @@ def make_curve_interpolators(lam_nm, curves):
         arr = np.asarray(curves[key], float)
         return lambda x: np.interp(np.asarray(x, float), lam_nm, arr, left=0.0, right=0.0)
     return {k: mk(k) for k in ("sun","asteroid","atm","qe","mirror")}
+# ===================================================================
+#                       NEW: PROCESS & CACHE
+# ===================================================================
+
+def process_and_cache_curves(
+    base_dir="data_files",
+    processed_subdir="processed",
+    paths=None,
+    to_photons=True,
+    grid_nm=None,
+    overwrite=False,
+):
+    """
+    Read RAW files -> convert units -> resample -> WRITE processed files.
+    Returns (wavelength_nm, curves).
+    """
+    import os
+    import numpy as np
+
+    processed_dir = os.path.join(base_dir, processed_subdir)
+    os.makedirs(processed_dir, exist_ok=True)
+
+    combined_csv = os.path.join(processed_dir, "curves_processed.csv")
+    npz_path     = os.path.join(processed_dir, "curves_processed.npz")
+
+    # If already processed and not overwriting, just load
+    if (not overwrite) and os.path.exists(combined_csv) and os.path.exists(npz_path):
+        return load_processed_curves(base_dir, processed_subdir)
+
+    # Otherwise, build fresh
+    wavelength_nm, curves = load_all_curves(base_dir=base_dir, paths=paths,
+                                            to_photons=to_photons, grid_nm=grid_nm)
+
+    # Write combined CSV
+    data = np.column_stack([
+        wavelength_nm,
+        curves["sun"],
+        curves["asteroid"],
+        curves["atm"],
+        curves["qe"],
+        curves["mirror"],
+    ])
+    header = ("# wavelength_nm, sun_photons_per_s_m2_nm, asteroid_reflectance, "
+              "atm_transmission, qe_e_per_photon, mirror_reflectivity")
+    np.savetxt(combined_csv, data, delimiter=",", header=header, comments="")
+
+    # Write NPZ
+    np.savez_compressed(
+        npz_path,
+        wavelength_nm=wavelength_nm,
+        sun_photons_per_s_m2_nm=curves["sun"],
+        asteroid_reflectance=curves["asteroid"],
+        atm_transmission=curves["atm"],
+        qe_e_per_photon=curves["qe"],
+        mirror_reflectivity=curves["mirror"],
+    )
+
+    return wavelength_nm, curves
+
+
+def load_processed_curves(
+    base_dir="data_files",
+    processed_subdir="processed",
+    prefer_npz=True
+):
+    """
+    Load previously processed curves from <base_dir>/<processed_subdir>/.
+    """
+    import os
+    import numpy as np
+
+    processed_dir = os.path.join(base_dir, processed_subdir)
+    npz_path = os.path.join(processed_dir, "curves_processed.npz")
+    csv_path = os.path.join(processed_dir, "curves_processed.csv")
+
+    if prefer_npz and os.path.exists(npz_path):
+        with np.load(npz_path) as z:
+            wavelength_nm = z["wavelength_nm"]
+            curves = {
+                "sun":     z["sun_photons_per_s_m2_nm"],
+                "asteroid":z["asteroid_reflectance"],
+                "atm":     z["atm_transmission"],
+                "qe":      z["qe_e_per_photon"],
+                "mirror":  z["mirror_reflectivity"],
+            }
+            return wavelength_nm, curves
+
+    if os.path.exists(csv_path):
+        data = np.loadtxt(csv_path, delimiter=",", comments="#")
+        wavelength_nm = data[:,0]
+        curves = {
+            "sun":      data[:,1],
+            "asteroid": data[:,2],
+            "atm":      data[:,3],
+            "qe":       data[:,4],
+            "mirror":   data[:,5],
+        }
+        return wavelength_nm, curves
+
+    raise FileNotFoundError(f"No processed files found in {processed_dir}. Run process_and_cache_curves(...) first.")
+
+
+def get_curves(
+    base_dir="data_files",
+    processed_subdir="processed",
+    use_cache=True,
+    overwrite=False,
+    to_photons=True,
+    grid_nm=None,
+    paths=None,
+):
+    """
+    Preferred entry point:
+      - If processed files exist and use_cache=True -> load them.
+      - Else -> process from RAW, write processed files, and return.
+    """
+    import os
+
+    processed_dir = os.path.join(base_dir, processed_subdir)
+    have_cache = os.path.exists(os.path.join(processed_dir, "curves_processed.npz")) and \
+                 os.path.exists(os.path.join(processed_dir, "curves_processed.csv"))
+
+    if use_cache and have_cache and not overwrite:
+        return load_processed_curves(base_dir, processed_subdir)
+
+    # Process (optionally overwriting)
+    return process_and_cache_curves(
+        base_dir=base_dir,
+        processed_subdir=processed_subdir,
+        paths=paths,
+        to_photons=to_photons,
+        grid_nm=grid_nm,
+        overwrite=overwrite,
+    )
