@@ -184,6 +184,7 @@ def SNR( lamba1_nm, lamba2_nm ):
     index1 = np.int32( ( lamba1_nm - min_wavelength_nm ) / step_wavelength_nm )
     index2 = np.int32( ( lamba2_nm - min_wavelength_nm ) / step_wavelength_nm )
     print(" Index 1/2, Lam1/2: ", index1, index2, lamba1_nm, lamba2_nm)
+    
     signal     =   gCumSig[index2] -   gCumSig[index1]
     background = gCumBkgnd[index2] - gCumBkgnd[index1]
     return signal / math.sqrt( signal + background )
