@@ -133,7 +133,7 @@ def make_curve_interpolators(lam_nm, curves):
         return lambda x: np.interp(np.asarray(x, float), lam_nm, arr, left=0.0, right=0.0)
     return {k: mk(k) for k in ("sun","asteroid","atm","qe","mirror")}
 # ===================================================================
-#                       NEW: PROCESS & CACHE
+# PROCESS & CACHE
 # ===================================================================
 
 def process_and_cache_curves(
@@ -257,7 +257,7 @@ def get_curves(
     if use_cache and have_cache and not overwrite:
         return load_processed_curves(base_dir, processed_subdir)
 
-    # Process (optionally overwriting)
+    # Overwriting
     return process_and_cache_curves(
         base_dir=base_dir,
         processed_subdir=processed_subdir,
