@@ -221,31 +221,31 @@ band2 = (730, 740)
 # aperture size
 n_pix_aperture = 50
 
-# ---- Plot transmissions and QE ----
-Tatm = transmission_atm(wavelength)
-Topt = transmission_optics(wavelength)
-Tf   = transmission_filter_placeholder(wavelength, 460, 470)  # simple demo filter
-QE   = ccd_qe(wavelength)
+# # ---- Plot transmissions and QE ----
+# Tatm = transmission_atm(wavelength)
+# Topt = transmission_optics(wavelength)
+# Tf   = transmission_filter_placeholder(wavelength, 460, 470)  # simple demo filter
+# QE   = ccd_qe(wavelength)
 
-plt.figure(figsize=(8,5))
-plt.plot(wavelength, Tatm, label="Atmosphere T(λ)")
-plt.plot(wavelength, Topt, label="Optics throughput")
-plt.plot(wavelength, Tf,   label="Filter 460–470 nm")
-plt.plot(wavelength, QE,   label="CCD QE")
-plt.xlabel("Wavelength (nm)")
-plt.ylabel("Transmission / QE")
-plt.title("Measured transmissions & CCD QE")
-plt.legend(); plt.grid(True); plt.show()
+# plt.figure(figsize=(8,5))
+# plt.plot(wavelength, Tatm, label="Atmosphere T(λ)")
+# plt.plot(wavelength, Topt, label="Optics throughput")
+# plt.plot(wavelength, Tf,   label="Filter 460–470 nm")
+# plt.plot(wavelength, QE,   label="CCD QE")
+# plt.xlabel("Wavelength (nm)")
+# plt.ylabel("Transmission / QE")
+# plt.title("Measured transmissions & CCD QE")
+# plt.legend(); plt.grid(True); plt.show()
 
-# ---- Per-λ detected signal (integrand) for band1 ----
-signal_pw = signal(wavelength, instr, t_exp_s)
+# # ---- Per-λ detected signal (integrand) for band1 ----
+# signal_pw = signal(wavelength, instr, t_exp_s)
 
-plt.figure(figsize=(8,5))
-plt.plot(wavelength, signal_pw, label=f"per-λ signal in [{band1[0]}, {band1[1]}] nm")
-plt.xlabel("Wavelength (nm)")
-plt.ylabel("Electrons per nm (scaled)")
-plt.title("Per-λ detected signal (integrand of Eq. 4)")
-plt.legend(); plt.grid(True); plt.show()
+# plt.figure(figsize=(8,5))
+# plt.plot(wavelength, signal_pw, label=f"per-λ signal in [{band1[0]}, {band1[1]}] nm")
+# plt.xlabel("Wavelength (nm)")
+# plt.ylabel("Electrons per nm (scaled)")
+# plt.title("Per-λ detected signal (integrand of Eq. 4)")
+# plt.legend(); plt.grid(True); plt.show()
 
 # ---- Cumulative signal curve from the per-λ integrand ----
 # cum_sig = cumulative_signal_from_integrand(wavelength, signal_pw)
@@ -293,43 +293,43 @@ plt.legend(); plt.grid(True); plt.show()
 # print("Color (m2 - m1) [mag]:", c, "  Uncertainty [mag]:", dc)
 # print("SNR", SNR)
 
-# Dark current contribution
-Bdark = instr["dark_e_per_pix_s"] * n_pix_aperture * t_exp_s
-print("Dark current contribution (per band):", Bdark, "electrons")
+# # Dark current contribution
+# Bdark = instr["dark_e_per_pix_s"] * n_pix_aperture * t_exp_s
+# print("Dark current contribution (per band):", Bdark, "electrons")
 
-# ---- Sun, Reflectance, Asteroid flux ----
-Ssun = spectrum_sun(wavelength)
-plt.figure(figsize=(8,5))
-plt.plot(wavelength, Ssun)
-plt.xlabel("Wavelength (nm)")
-plt.ylabel("Solar photons / s / m² / nm (scaled)")
-plt.title("Solar spectrum S_sun(λ) (from file)")
-plt.grid(True); plt.show()
+# # ---- Sun, Reflectance, Asteroid flux ----
+# Ssun = spectrum_sun(wavelength)
+# plt.figure(figsize=(8,5))
+# plt.plot(wavelength, Ssun)
+# plt.xlabel("Wavelength (nm)")
+# plt.ylabel("Solar photons / s / m² / nm (scaled)")
+# plt.title("Solar spectrum S_sun(λ) (from file)")
+# plt.grid(True); plt.show()
 
-Rast = reflectance_asteroid(wavelength)
-plt.figure(figsize=(8,5))
-plt.plot(wavelength, Rast)
-plt.xlabel("Wavelength (nm)")
-plt.ylabel("Reflectance (unitless)")
-plt.title("Asteroid reflectance R_ast(λ) (from file)")
-plt.grid(True); plt.show()
+# Rast = reflectance_asteroid(wavelength)
+# plt.figure(figsize=(8,5))
+# plt.plot(wavelength, Rast)
+# plt.xlabel("Wavelength (nm)")
+# plt.ylabel("Reflectance (unitless)")
+# plt.title("Asteroid reflectance R_ast(λ) (from file)")
+# plt.grid(True); plt.show()
 
-S_ast = asteroid_flux_raw(wavelength)
-plt.figure(figsize=(8,5))
-plt.plot(wavelength, S_ast)
-plt.xlabel("Wavelength (nm)")
-plt.ylabel("Asteroid photons (scaled)")
-plt.title("Asteroid photon spectrum Ṡ_ast(λ) = S_sun × R_ast")
-plt.grid(True); plt.show()
+# S_ast = asteroid_flux_raw(wavelength)
+# plt.figure(figsize=(8,5))
+# plt.plot(wavelength, S_ast)
+# plt.xlabel("Wavelength (nm)")
+# plt.ylabel("Asteroid photons (scaled)")
+# plt.title("Asteroid photon spectrum Ṡ_ast(λ) = S_sun × R_ast")
+# plt.grid(True); plt.show()
 
-# -- background per wavelength (using placeholder sky)
-b_pw = background(wavelength, instr, t_exp_s)
-plt.figure(figsize=(8,5))
-plt.plot(wavelength, b_pw, label="per-λ background (sky)")
-plt.xlabel("Wavelength (nm)")
-plt.ylabel("Electrons per nm (scaled)")
-plt.title(f"Per-λ background inside [{band1[0]}, {band1[1]}] nm")
-plt.legend(); plt.grid(True); plt.show()
+# # -- background per wavelength (using placeholder sky)
+# b_pw = background(wavelength, instr, t_exp_s)
+# plt.figure(figsize=(8,5))
+# plt.plot(wavelength, b_pw, label="per-λ background (sky)")
+# plt.xlabel("Wavelength (nm)")
+# plt.ylabel("Electrons per nm (scaled)")
+# plt.title(f"Per-λ background inside [{band1[0]}, {band1[1]}] nm")
+# plt.legend(); plt.grid(True); plt.show()
 
 
 
@@ -369,59 +369,113 @@ wavelength_s, reflectance_s = smass.plot_smass2_spectrum('000003')
 wavelength_v, reflectance_v = smass.plot_smass2_spectrum('000004')  
 wavelength_c, reflectance_c = smass.plot_smass2_spectrum('000010')  
 
-plt.figure(figsize=(8,5))
-plt.plot(wavelength_s, reflectance_s, label="00003")
-plt.plot(wavelength_v, reflectance_v, label="00004")
-plt.plot(wavelength_c, reflectance_c, label="000010")
+# plt.figure(figsize=(8,5))
+# plt.plot(wavelength_s, reflectance_s, label="00003")
+# plt.plot(wavelength_v, reflectance_v, label="00004")
+# plt.plot(wavelength_c, reflectance_c, label="000010")
 
-plt.xlabel("Wavelength")
-plt.ylabel("Reflectance")
-plt.title("S, V, C types")
-plt.legend()
-plt.grid(True)
-plt.show()
+# plt.xlabel("Wavelength")
+# plt.ylabel("Reflectance")
+# plt.title("S, V, C types")
+# plt.legend()
+# plt.grid(True)
+# plt.show()
+
+# maybe this fixes my issue of the plots all looking the same?
+wavelength_nm = lam 
 
 
 
+# change f_ast to this new data
+# wl_src... is wavelengths
+# r_src is reflectance
+# asked Chat GPT to look at this,
+# pasted in its answer to try to see if it will fix?
+def set_reflectance_from_arrays(wl_src_nm, R_src):
+    """Override f_ast so the pipeline uses this SMASS reflectance."""
+    global f_ast
+    wl_src_nm = np.asarray(wl_src_nm, float)
+    R_src     = np.asarray(R_src, float)
+    # interpolate the SMASS curve onto the SAME grid you integrate on
+    R_on_grid = np.interp(wavelength_nm, wl_src_nm, R_src)
+    # new asteroid reflectance function used by signal()
+    f_ast = lambda x_nm: np.interp(np.asarray(x_nm, float), wavelength_nm, R_on_grid)
 
 
+# chose one asteroid
 def load_smass_spectrum_from_file(path_txt, id_str):
-    # File format:'000001 0.44 0.9281' (ID, wavelength, reflectance)
+    #looks at format
+    # reminder: 000001 0.44 0.9281 = ID, wavelength in microns, reflectance
     raw = np.loadtxt(path_txt, dtype={"names": ("id","w","r"),
                                       "formats": ("U16","f8","f8")})
     mask = (raw["id"] == id_str)
-    wl_um = raw["w"][mask]
-    R     = raw["r"][mask]
-    wl_nm = wl_um * 1000.0  # um -> nm
+    wl_um = raw["w"][mask] # wavelength in microns
+    R = raw["r"][mask] # reflectance
+    wl_nm = wl_um * 1000.0 # convert um → nm
     return wl_nm, R
 
-#loading specific asteroid
+# Find SNR for one band
+# looping through each one to creat ea full grid/plot
+# the left and right should find that min/max
+def snr_band(bmin_nm, bmax_nm):
+    i1 = int(np.searchsorted(wavelength_nm, bmin_nm, side="left"))
+    i2 = int(np.searchsorted(wavelength_nm, bmax_nm, side="right") - 1)
+
+    # total signal and background
+    S_band = float(gCumSig[i2] - gCumSig[i1])
+    B_band = float(gCumBkgnd[i2] - gCumBkgnd[i1])
+
+    # add dark current from earlier
+    B_dark = instr["dark_e_per_pix_s"] * n_pix_aperture * t_exp_s
+    B_band += B_dark
+
+    #noise = sqrt(signal+background+read noise)
+    R = instr["read_noise"]
+    sigma = math.sqrt(S_band + B_band + n_pix_aperture * (R**2))
+    return S_band/sigma
+
+
+# gonna wrap this in a function so I can input multiple asteroids
+def plot_snr(id_str, smass_path, instr, t_exp_s, n_pix_aperture):
+    # finds asteroid from the file
+    wl_nm, R = load_smass_spectrum_from_file(smass_path, id_str)
+
+    # swap the reflectance
+    set_reflectance_from_arrays(wl_nm, R)
+
+    # 3remake the cum with new data
+    global gCumSig, gCumBkgnd
+    gCumSig   = cumulative_signal(wavelength_nm, instr, t_exp_s)
+    gCumBkgnd = cumulative_background(wavelength_nm, instr, t_exp_s)
+
+    # the ranges like from earlier
+    min_wavelength_nm = 400
+    max_wavelength_nm = 900
+    step_wavelength_nm = 10
+    L1_vals = np.arange(min_wavelength_nm, max_wavelength_nm+1, step_wavelength_nm)
+    L2_vals = np.arange(min_wavelength_nm, max_wavelength_nm+1, step_wavelength_nm)
+    L1, L2 = np.meshgrid(L1_vals, L2_vals)
+    mask = L2 > L1
+
+    # This basic loop fills in the grid pretty much
+    SNR_vals = np.full_like(L1, np.nan, dtype=float)
+    for i in range(L1.shape[0]):
+        for j in range(L1.shape[1]):
+            if mask[i, j]:
+                SNR_vals[i, j] = snr_band(float(L1[i, j]), float(L2[i, j]))
+
+    # basic plot, copied from above
+    plt.figure(figsize=(7,6))
+    c = plt.pcolormesh(L1, L2, SNR_vals, shading="auto", cmap="viridis")
+    plt.colorbar(c, label="SNR")
+    plt.xlabel("min wavelength (nm)")
+    plt.ylabel("max wavelength (nm)")
+    plt.title(f"SNR vs band min/max")
+    plt.show()
+
+#pick the asteroid
 smass_path = "/Users/karakanetis/Documents/GitHub/optimized-filters/main_code/smass2_all_spfit.txt"
-id_str     = "000004"
-wl_nm, R = load_smass_spectrum_from_file(smass_path, id_str)
 
-# same as before
-min_wavelength_nm = 400
-max_wavelength_nm = 900
-step_wavelength_nm = 10
-
-L1_vals = np.arange(min_wavelength_nm, max_wavelength_nm+1, step_wavelength_nm)
-L2_vals = np.arange(min_wavelength_nm, max_wavelength_nm+1, step_wavelength_nm)
-L1, L2 = np.meshgrid(L1_vals, L2_vals)
-mask = L2 > L1
-
-# Compute SNR only where valid — keep scalar calls
-SNR_vals = np.full_like(L1, np.nan, dtype=float)
-for i in range(L1.shape[0]):
-    for j in range(L1.shape[1]):
-        if mask[i, j]:
-            SNR_vals[i, j] = snr_band(float(L1[i, j]), float(L2[i, j]))
-
-# Plot
-plt.figure(figsize=(7,6))
-c = plt.pcolormesh(L1, L2, SNR_vals, shading="auto", cmap="viridis")
-plt.colorbar(c, label="SNR")
-plt.xlabel("min wavelength (nm)")
-plt.ylabel("max wavelength (nm)")
-plt.title(f"SNR vs band min/max — SMASS ID {id_str}")
-plt.show()
+plot_snr("000004", smass_path, instr, t_exp_s, n_pix_aperture)  # Vesta
+plot_snr("000001", smass_path, instr, t_exp_s, n_pix_aperture)  # Ceres
+plot_snr("000003", smass_path, instr, t_exp_s, n_pix_aperture)  # Juno

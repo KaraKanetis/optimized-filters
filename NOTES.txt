@@ -118,3 +118,10 @@ Make a conversion method to get everything in the same units- review this cant r
 
 
 List all sources you've used so far
+
+
+Get files working 
+imports
+
+
+Try to get spyder working (imports or download from anaconda)

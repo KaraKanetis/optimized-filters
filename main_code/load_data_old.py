@@ -15,41 +15,6 @@ import os
 COMMON_GRID_NM = np.arange(300.0, 1201.0, 1.0)
 
 _NUM_RE = re.compile(r"^[\s]*[+-]?\d")
-def load_taxonomy_table(path="taxonomy.pds.table.txt"):
-    """
-    Load mapping asteroid_number -> taxonomic class (collapsed to first letter).
-    Accepts arbitrary whitespace, skips blank/comment/malformed lines.
-    Returns dict: {id_str (zero-padded 6 digits): class_letter}
-    """
-    import re
-    mapping = {}
-    with open(path, "r", errors="ignore") as f:
-        for line in f:
-            s = line.strip()
-            if not s or s.startswith("#"):
-                continue  # skip blanks/comments
-
-            parts = re.split(r"\s+", s)
-            # need at least number and some class-ish token somewhere
-            try:
-                num = int(parts[0])
-            except (ValueError, IndexError):
-                continue
-
-            # find first alphabetic token/char among the remaining columns
-            tclass = None
-            for tok in parts[1:]:
-                m = re.search(r"[A-Za-z]", tok)
-                if m:
-                    tclass = tok[m.start()].upper()  # collapse S0, B+F, G? -> 'S','B','G'
-                    break
-            if not tclass:
-                continue
-
-            id_str = f"{num:06d}"   # SMASS ids are zero-padded to 6 digits
-            mapping[id_str] = tclass
-    return mapping
-
 
 def percent_to_fraction(y):
     return np.asarray(y, float) / 100.0
