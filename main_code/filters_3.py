@@ -70,7 +70,7 @@ _H = 6.62607015e-34  # Planck [J*s]
 _C = 2.99792458e8    # speed of light [m/s]
 
 # -----------------------------------------------------------------------------
-# Helper: AB magnitude → photon flux per nm at λ0
+# Helper: AB magnitude photon flux per nm at λ0
 # Ai added this because my SNR wasn't looking accurate
 # -----------------------------------------------------------------------------
 def scale_factor_from_AB_mag(m_AB: float, lambda0_nm: float = 550.0) -> float:
