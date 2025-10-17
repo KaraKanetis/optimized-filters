@@ -602,7 +602,7 @@ if __name__ == "__main__":
             l1, l2, l3, l4, c, dc, merit = best
             print(f"[{taxon}] Best bands by |c|/dc: "
                   f"band1=[{l1:.1f},{l2:.1f}], band2=[{l3:.1f},{l4:.1f}]  "
-                  f"c={c:.4f} mag, dc={dc:.4f} mag, |c|/dc={merit:.1f}") 
+                  f"c={c:.4f} mag, dc={dc:.4f} mag, |c|/dc={merit:.1f}") #ai formatted
 
 
 
